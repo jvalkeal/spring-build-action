@@ -69,6 +69,8 @@ const core = __importStar(__webpack_require__(470));
 function run() {
     return __awaiter(this, void 0, void 0, function* () {
         try {
+            let jfrogCliVersion = core.getInput('jfrog-cli-version', { required: false });
+            console.log('jfrogCliVersion', jfrogCliVersion);
         }
         catch (error) {
             core.setFailed(error.message);
