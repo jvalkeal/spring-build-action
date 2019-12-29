@@ -26,9 +26,29 @@ if (!tempDirectory) {
 }
 
 export async function getCli(
-  version: string
+  version: string,
+  arch: string,
+  jfrogPackage: string
 ): Promise<void> {
+  let toolPath = tc.find(jfrogPackage, version);
+  let destinationFolder: string = path.join(
+    tempDirectory,
+    'temp_' + Math.floor(Math.random() * 2000000000)
+  );
+  await io.mkdirP(destinationFolder);
+
   const http = new httpm.HttpClient('spring-build-action');
   const cli = await tc.downloadTool('https://dl.bintray.com/jfrog/jfrog-cli-go/1.32.4/jfrog-cli-linux-amd64/jfrog');
+  fs.chmodSync(cli, '755');
 
+  console.log('XXX cli', cli);
+
+  io.mv(cli, path.join(destinationFolder, 'jfrog'));
+
+  // const stats = fs.statSync(cli);
+  // console.log('XXX stats', stats);
+
+  toolPath = await tc.cacheDir(destinationFolder, jfrogPackage, version, arch);
+
+  core.addPath(toolPath);
 }
