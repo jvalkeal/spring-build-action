@@ -2,8 +2,8 @@ name: 'Setup Spring Build'
 description: 'Setup tools to build and release Spring Projects'
 author: 'Pivotal'
 inputs:
-  jfrog-cli-version:
-    description: 'The JFrog CLI version to make available on the path'
+  use-wrapper:
+    description: 'desc'
     required: false
 runs:
   using: 'node12'

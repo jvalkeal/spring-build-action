@@ -7,48 +7,55 @@ import * as path from 'path';
 // import * as semver from 'semver';
 import * as httpm from 'typed-rest-client/HttpClient';
 
-let tempDirectory = process.env['RUNNER_TEMP'] || '';
-const IS_WINDOWS = process.platform === 'win32';
+// let tempDirectory = process.env['RUNNER_TEMP'] || '';
+// const IS_WINDOWS = process.platform === 'win32';
 
-if (!tempDirectory) {
-   let baseLocation;
-   if (IS_WINDOWS) {
-     // On windows use the USERPROFILE env variable
-     baseLocation = process.env['USERPROFILE'] || 'C:\\';
-   } else {
-     if (process.platform === 'darwin') {
-       baseLocation = '/Users';
-     } else {
-       baseLocation = '/home';
-     }
-   }
-   tempDirectory = path.join(baseLocation, 'actions', 'temp');
-}
+// if (!tempDirectory) {
+//    let baseLocation;
+//    if (IS_WINDOWS) {
+//      // On windows use the USERPROFILE env variable
+//      baseLocation = process.env['USERPROFILE'] || 'C:\\';
+//    } else {
+//      if (process.platform === 'darwin') {
+//        baseLocation = '/Users';
+//      } else {
+//        baseLocation = '/home';
+//      }
+//    }
+//    tempDirectory = path.join(baseLocation, 'actions', 'temp');
+// }
 
 export async function getCli(
   version: string,
   arch: string,
   jfrogPackage: string
 ): Promise<void> {
-  let toolPath = tc.find(jfrogPackage, version);
-  let destinationFolder: string = path.join(
-    tempDirectory,
-    'temp_' + Math.floor(Math.random() * 2000000000)
-  );
-  await io.mkdirP(destinationFolder);
+  // let toolPath = tc.find(jfrogPackage, version);
 
-  const http = new httpm.HttpClient('spring-build-action');
-  const cli = await tc.downloadTool('https://dl.bintray.com/jfrog/jfrog-cli-go/1.32.4/jfrog-cli-linux-amd64/jfrog');
-  fs.chmodSync(cli, '755');
+  // if (toolPath) {
+  //   core.info(`Tool found in cache ${toolPath}`);
+  // }
 
-  console.log('XXX cli', cli);
+  // let destinationFolder: string = path.join(
+  //   tempDirectory,
+  //   'temp_' + Math.floor(Math.random() * 2000000000)
+  // );
+  // await io.mkdirP(destinationFolder);
 
-  io.mv(cli, path.join(destinationFolder, 'jfrog'));
+  // const http = new httpm.HttpClient('spring-build-action');
+  // const cli = await tc.downloadTool('https://dl.bintray.com/jfrog/jfrog-cli-go/1.32.4/jfrog-cli-linux-amd64/jfrog');
+  // fs.chmodSync(cli, '755');
 
-  // const stats = fs.statSync(cli);
-  // console.log('XXX stats', stats);
+  // console.log('XXX cli', cli);
 
-  toolPath = await tc.cacheDir(destinationFolder, jfrogPackage, version, arch);
+  // io.mv(cli, path.join(destinationFolder, 'jfrog'));
 
-  core.addPath(toolPath);
+  // // const stats = fs.statSync(cli);
+  // // console.log('XXX stats', stats);
+
+  // toolPath = await tc.cacheDir(destinationFolder, jfrogPackage, version, arch);
+
+  // core.addPath(toolPath);
 }
+
+// jfrog rt config rt-server --interactive=false --url=http://localhost:8081/artifactory --user=admin --password=password
