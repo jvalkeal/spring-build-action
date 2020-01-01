@@ -1,16 +1,30 @@
 import * as core from '@actions/core';
-// import * as jfrog from './jfrog-cli-installer';
-// import { configureEnvironment } from './jfrog-cli-config';
-import * as maven from './maven-build';
+import * as exec from '@actions/exec';
+import { BuildCommandBuilder } from './build-command-builder';
 
 async function run() {
   try {
-    // let jfrogCliVersion = core.getInput('jfrog-cli-version', {required: false});
-    // console.log('jfrogCliVersion', jfrogCliVersion);
-    // jfrog.getCli(jfrogCliVersion, 'amd64', 'jfrog-cli');
-    // console.log('Configuring env');
-    // await configureEnvironment();
-    await maven.build();
+    // read input configs, we get user set values here
+    let useWrapper = core.getInput('use-wrapper', {required: false}) === 'true';
+    let buildMode = core.getInput('build-mode', {required: false});
+
+    const builder = new BuildCommandBuilder();
+    builder.useWrapper = useWrapper;
+    builder.buildMode = buildMode;
+    const buildExec = await builder.build();
+
+    // discover runtime config from a cloned project
+
+    // merge these configs, what user defined overrides
+
+    // sanitity check and fail fast if we think config
+    // or prepared env is screwed up
+
+    // we only support maven or gradle so dispatch to
+    // one of those or throw error
+
+    await exec.exec(buildExec.commandLine, buildExec.args);
+
   } catch (error) {
     core.setFailed(error.message);
   }

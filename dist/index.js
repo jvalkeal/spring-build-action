@@ -957,18 +957,25 @@ var __importStar = (this && this.__importStar) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const core = __importStar(__webpack_require__(470));
-// import * as jfrog from './jfrog-cli-installer';
-// import { configureEnvironment } from './jfrog-cli-config';
-const maven = __importStar(__webpack_require__(67));
+const exec = __importStar(__webpack_require__(986));
+const build_command_builder_1 = __webpack_require__(481);
 function run() {
     return __awaiter(this, void 0, void 0, function* () {
         try {
-            // let jfrogCliVersion = core.getInput('jfrog-cli-version', {required: false});
-            // console.log('jfrogCliVersion', jfrogCliVersion);
-            // jfrog.getCli(jfrogCliVersion, 'amd64', 'jfrog-cli');
-            // console.log('Configuring env');
-            // await configureEnvironment();
-            yield maven.build();
+            // read input configs, we get user set values here
+            let useWrapper = core.getInput('use-wrapper', { required: false }) === 'true';
+            let buildMode = core.getInput('build-mode', { required: false });
+            const builder = new build_command_builder_1.BuildCommandBuilder();
+            builder.useWrapper = useWrapper;
+            builder.buildMode = buildMode;
+            const buildExec = yield builder.build();
+            // discover runtime config from a cloned project
+            // merge these configs, what user defined overrides
+            // sanitity check and fail fast if we think config
+            // or prepared env is screwed up
+            // we only support maven or gradle so dispatch to
+            // one of those or throw error
+            yield exec.exec(buildExec.commandLine, buildExec.args);
         }
         catch (error) {
             core.setFailed(error.message);
@@ -976,39 +983,6 @@ function run() {
     });
 }
 run();
-
-
-/***/ }),
-
-/***/ 67:
-/***/ (function(__unusedmodule, exports, __webpack_require__) {
-
-"use strict";
-
-var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
-    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
-var __importStar = (this && this.__importStar) || function (mod) {
-    if (mod && mod.__esModule) return mod;
-    var result = {};
-    if (mod != null) for (var k in mod) if (Object.hasOwnProperty.call(mod, k)) result[k] = mod[k];
-    result["default"] = mod;
-    return result;
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-const exec = __importStar(__webpack_require__(986));
-function build() {
-    return __awaiter(this, void 0, void 0, function* () {
-        yield exec.exec('./mvnw', ['clean', 'install']);
-    });
-}
-exports.build = build;
 
 
 /***/ }),
@@ -1024,6 +998,169 @@ module.exports = require("os");
 /***/ (function(module) {
 
 module.exports = require("child_process");
+
+/***/ }),
+
+/***/ 243:
+/***/ (function(module, __unusedexports, __webpack_require__) {
+
+"use strict";
+
+
+var exec = __webpack_require__(129).exec;
+var execSync = __webpack_require__(129).execSync;
+var fs = __webpack_require__(747);
+var path = __webpack_require__(622);
+var access = fs.access;
+var accessSync = fs.accessSync;
+var constants = fs.constants || fs;
+
+var isUsingWindows = process.platform == 'win32'
+
+var fileNotExists = function(commandName, callback){
+    access(commandName, constants.F_OK,
+    function(err){
+        callback(!err);
+    });
+};
+
+var fileNotExistsSync = function(commandName){
+    try{
+        accessSync(commandName, constants.F_OK);
+        return false;
+    }catch(e){
+        return true;
+    }
+};
+
+var localExecutable = function(commandName, callback){
+    access(commandName, constants.F_OK | constants.X_OK,
+        function(err){
+        callback(null, !err);
+    });
+};
+
+var localExecutableSync = function(commandName){
+    try{
+        accessSync(commandName, constants.F_OK | constants.X_OK);
+        return true;
+    }catch(e){
+        return false;
+    }
+}
+
+var commandExistsUnix = function(commandName, cleanedCommandName, callback) {
+
+    fileNotExists(commandName, function(isFile){
+
+        if(!isFile){
+            var child = exec('command -v ' + cleanedCommandName +
+                  ' 2>/dev/null' +
+                  ' && { echo >&1 ' + cleanedCommandName + '; exit 0; }',
+                  function (error, stdout, stderr) {
+                      callback(null, !!stdout);
+                  });
+            return;
+        }
+
+        localExecutable(commandName, callback);
+    });
+
+}
+
+var commandExistsWindows = function(commandName, cleanedCommandName, callback) {
+  if (/[\x00-\x1f<>:"\|\?\*]/.test(commandName)) {
+    callback(null, false);
+    return;
+  }
+  var child = exec('where ' + cleanedCommandName,
+    function (error) {
+      if (error !== null){
+        callback(null, false);
+      } else {
+        callback(null, true);
+      }
+    }
+  )
+}
+
+var commandExistsUnixSync = function(commandName, cleanedCommandName) {
+  if(fileNotExistsSync(commandName)){
+      try {
+        var stdout = execSync('command -v ' + cleanedCommandName +
+              ' 2>/dev/null' +
+              ' && { echo >&1 ' + cleanedCommandName + '; exit 0; }'
+              );
+        return !!stdout;
+      } catch (error) {
+        return false;
+      }
+  }
+  return localExecutableSync(commandName);
+}
+
+var commandExistsWindowsSync = function(commandName, cleanedCommandName, callback) {
+  if (/[\x00-\x1f<>:"\|\?\*]/.test(commandName)) {
+    return false;
+  }
+  try {
+      var stdout = execSync('where ' + cleanedCommandName, {stdio: []});
+      return !!stdout;
+  } catch (error) {
+      return false;
+  }
+}
+
+var cleanInput = function(s) {
+  if (/[^A-Za-z0-9_\/:=-]/.test(s)) {
+    s = "'"+s.replace(/'/g,"'\\''")+"'";
+    s = s.replace(/^(?:'')+/g, '') // unduplicate single-quote at the beginning
+      .replace(/\\'''/g, "\\'" ); // remove non-escaped single-quote if there are enclosed between 2 escaped
+  }
+  return s;
+}
+
+if (isUsingWindows) {
+  cleanInput = function(s) {
+    var isPathName = /[\\]/.test(s);
+    if (isPathName) {
+      var dirname = '"' + path.dirname(s) + '"';
+      var basename = '"' + path.basename(s) + '"';
+      return dirname + ':' + basename;
+    }
+    return '"' + s + '"';
+  }
+}
+
+module.exports = function commandExists(commandName, callback) {
+  var cleanedCommandName = cleanInput(commandName);
+  if (!callback && typeof Promise !== 'undefined') {
+    return new Promise(function(resolve, reject){
+      commandExists(commandName, function(error, output) {
+        if (output) {
+          resolve(commandName);
+        } else {
+          reject(error);
+        }
+      });
+    });
+  }
+  if (isUsingWindows) {
+    commandExistsWindows(commandName, cleanedCommandName, callback);
+  } else {
+    commandExistsUnix(commandName, cleanedCommandName, callback);
+  }
+};
+
+module.exports.sync = function(commandName) {
+  var cleanedCommandName = cleanInput(commandName);
+  if (isUsingWindows) {
+    return commandExistsWindowsSync(commandName, cleanedCommandName);
+  } else {
+    return commandExistsUnixSync(commandName, cleanedCommandName);
+  }
+};
+
 
 /***/ }),
 
@@ -1309,6 +1446,134 @@ exports.getState = getState;
 
 /***/ }),
 
+/***/ 481:
+/***/ (function(__unusedmodule, exports, __webpack_require__) {
+
+"use strict";
+
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
+var __importStar = (this && this.__importStar) || function (mod) {
+    if (mod && mod.__esModule) return mod;
+    var result = {};
+    if (mod != null) for (var k in mod) if (Object.hasOwnProperty.call(mod, k)) result[k] = mod[k];
+    result["default"] = mod;
+    return result;
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+const fs = __importStar(__webpack_require__(747));
+const commandExists = __webpack_require__(677);
+class BuildCommandBuilder {
+    constructor() {
+        this.defaultMavenArgs = ['clean', 'install'];
+        this.defaultGradleArgs = ['clean', 'build'];
+    }
+    build() {
+        return __awaiter(this, void 0, void 0, function* () {
+            const commandLine = yield this.getCommandLine();
+            let a = [];
+            if (commandLine.includes('mvn')) {
+                a = this.defaultMavenArgs;
+            }
+            if (commandLine.includes('gradle')) {
+                a = this.defaultGradleArgs;
+            }
+            return {
+                commandLine: commandLine,
+                args: a
+            };
+        });
+    }
+    getCommandLine() {
+        return __awaiter(this, void 0, void 0, function* () {
+            let commandLine;
+            let error = 'Unknown error';
+            const IS_WINDOWS = process.platform === 'win32';
+            const mavenWrapperCommand = IS_WINDOWS ? 'mvnw.cmd' : 'mvnw';
+            const gradleWrapperCommand = IS_WINDOWS ? 'gradle.bat' : 'gradle';
+            const mavenPomExists = fs.existsSync('pom.xml');
+            const mavenExists = commandExists('mvn');
+            const mavenWrapperExists = fs.existsSync(mavenWrapperCommand);
+            const gradleBuildExists = fs.existsSync('build.gradle');
+            const gradleWrapperExists = fs.existsSync(gradleWrapperCommand);
+            const gradleExists = commandExists('gradle');
+            if (this.buildMode === 'maven') {
+                if (!mavenPomExists) {
+                    error = 'pom.xml does not exist';
+                }
+                else if (this.useWrapper && !mavenWrapperExists) {
+                    error = 'mvn wrapper does not exist';
+                }
+                else if (!this.useWrapper && !mavenExists) {
+                    error = 'mvn does not exist';
+                }
+                else {
+                    commandLine = this.useWrapper ? './' + mavenWrapperCommand : 'mvn';
+                }
+            }
+            else if (this.buildMode === 'gradle') {
+                if (!gradleBuildExists) {
+                    error = 'gradle.build does not exist';
+                }
+                else if (this.useWrapper && !gradleWrapperExists) {
+                    error = 'gradle wrapper does not exist';
+                }
+                else if (!this.useWrapper && !gradleExists) {
+                    error = 'gradle does not exist';
+                }
+                else {
+                    commandLine = this.useWrapper ? './' + gradleWrapperCommand : 'gradle';
+                }
+            }
+            else {
+                if (!mavenPomExists) {
+                    error = 'pom.xml does not exist';
+                }
+                else if (this.useWrapper && !mavenWrapperExists) {
+                    error = 'mvn wrapper does not exist';
+                }
+                else if (!this.useWrapper && !mavenExists) {
+                    error = 'mvn does not exist';
+                }
+                else {
+                    commandLine = this.useWrapper ? './' + mavenWrapperCommand : 'mvn';
+                }
+                if (!commandLine) {
+                    if (!gradleBuildExists) {
+                        error = 'gradle.build does not exist';
+                    }
+                    else if (this.useWrapper && !gradleWrapperExists) {
+                        error = 'gradle wrapper does not exist';
+                    }
+                    else if (!this.useWrapper && !gradleExists) {
+                        error = 'gradle does not exist';
+                    }
+                    else {
+                        commandLine = this.useWrapper ? './' + gradleWrapperCommand : 'gradle';
+                    }
+                }
+            }
+            if (commandLine) {
+                return commandLine;
+            }
+            else {
+                return Promise.reject(error);
+            }
+        });
+    }
+}
+exports.BuildCommandBuilder = BuildCommandBuilder;
+
+
+/***/ }),
+
 /***/ 614:
 /***/ (function(module) {
 
@@ -1529,6 +1794,14 @@ function isUnixExecutable(stats) {
         ((stats.mode & 64) > 0 && stats.uid === process.getuid()));
 }
 //# sourceMappingURL=io-util.js.map
+
+/***/ }),
+
+/***/ 677:
+/***/ (function(module, __unusedexports, __webpack_require__) {
+
+module.exports = __webpack_require__(243);
+
 
 /***/ }),
 

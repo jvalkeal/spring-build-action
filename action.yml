@@ -3,7 +3,10 @@ description: 'Setup tools to build and release Spring Projects'
 author: 'Pivotal'
 inputs:
   use-wrapper:
-    description: 'desc'
+    description: 'Prefer using maven/gradle wrapper'
+    required: false
+  build-mode:
+    description: 'Use maven or gradle'
     required: false
 runs:
   using: 'node12'
