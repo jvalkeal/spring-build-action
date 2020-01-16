@@ -78,7 +78,7 @@ export async function getMaven(
     );
   }
 
-  core.exportVariable('ME_HOME', toolPath);
+  core.exportVariable('M2_HOME', toolPath);
   core.addPath(path.join(toolPath, 'bin'));
 }
 

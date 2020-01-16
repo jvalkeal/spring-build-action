@@ -3237,7 +3237,7 @@ function getMaven(version, mavenFile, mavenMirror = 'https://archive.apache.org/
             core.debug(`jdk extracted to ${jdkDir}`);
             toolPath = yield tc.cacheDir(jdkDir, toolName, getCacheVersionString(version));
         }
-        core.exportVariable('ME_HOME', toolPath);
+        core.exportVariable('M2_HOME', toolPath);
         core.addPath(path.join(toolPath, 'bin'));
     });
 }
