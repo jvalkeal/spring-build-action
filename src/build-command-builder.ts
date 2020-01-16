@@ -1,6 +1,6 @@
 import { ExecOptions } from '@actions/exec/lib/interfaces';
 import * as fs from 'fs';
-const commandExists = require('command-exists');
+// const commandExists = require('command-exists');
 
 export interface BuildExec {
   commandLine: string,
@@ -39,11 +39,11 @@ export class BuildCommandBuilder {
     const gradleWrapperCommand = IS_WINDOWS ? 'gradlew.bat' : 'gradlew';
 
     const mavenPomExists = fs.existsSync('pom.xml');
-    const mavenExists = commandExists('mvn');
+    const mavenExists = true;//commandExists('mvn');
     const mavenWrapperExists = fs.existsSync(mavenWrapperCommand);
     const gradleBuildExists = fs.existsSync('build.gradle');
     const gradleWrapperExists = fs.existsSync(gradleWrapperCommand);
-    const gradleExists = commandExists('gradle');
+    const gradleExists = true;//commandExists('gradle');
 
     if (this.buildMode === 'maven') {
       if (!mavenPomExists) {

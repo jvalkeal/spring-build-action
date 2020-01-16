@@ -1,6 +1,6 @@
 import * as core from '@actions/core';
 import * as exec from '@actions/exec';
-import { BuildCommandBuilder } from './build-command-builder';
+// import { BuildCommandBuilder } from './build-command-builder';
 import * as mavenInstaller from './maven-installer';
 
 async function run() {
