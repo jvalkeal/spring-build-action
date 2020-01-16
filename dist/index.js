@@ -966,6 +966,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const core = __importStar(__webpack_require__(470));
 // import { BuildCommandBuilder } from './build-command-builder';
 const mavenInstaller = __importStar(__webpack_require__(403));
+const gradleInstaller = __importStar(__webpack_require__(484));
 function run() {
     return __awaiter(this, void 0, void 0, function* () {
         try {
@@ -976,6 +977,9 @@ function run() {
             const mavenFile = core.getInput('maven-file', { required: false }) || '';
             const mavenMirror = core.getInput('maven-mirror', { required: true });
             yield mavenInstaller.getMaven(mavenVersion, mavenFile, mavenMirror);
+            const gradleVersion = core.getInput('gradle-version', { required: true });
+            const gradleFile = core.getInput('gradle-file', { required: false }) || '';
+            yield gradleInstaller.getGradle(gradleVersion, gradleFile);
             // const builder = new BuildCommandBuilder();
             // builder.useWrapper = useWrapper;
             // builder.buildMode = buildMode;
@@ -3641,6 +3645,193 @@ function getState(name) {
 }
 exports.getState = getState;
 //# sourceMappingURL=core.js.map
+
+/***/ }),
+
+/***/ 484:
+/***/ (function(__unusedmodule, exports, __webpack_require__) {
+
+"use strict";
+
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
+var __importStar = (this && this.__importStar) || function (mod) {
+    if (mod && mod.__esModule) return mod;
+    var result = {};
+    if (mod != null) for (var k in mod) if (Object.hasOwnProperty.call(mod, k)) result[k] = mod[k];
+    result["default"] = mod;
+    return result;
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+let tempDirectory = process.env['RUNNER_TEMP'] || '';
+const core = __importStar(__webpack_require__(470));
+const io = __importStar(__webpack_require__(1));
+const tc = __importStar(__webpack_require__(533));
+const fs = __importStar(__webpack_require__(747));
+const path = __importStar(__webpack_require__(622));
+const semver = __importStar(__webpack_require__(280));
+const httpm = __importStar(__webpack_require__(874));
+const IS_WINDOWS = process.platform === 'win32';
+if (!tempDirectory) {
+    let baseLocation;
+    if (IS_WINDOWS) {
+        // On windows use the USERPROFILE env variable
+        baseLocation = process.env['USERPROFILE'] || 'C:\\';
+    }
+    else {
+        if (process.platform === 'darwin') {
+            baseLocation = '/Users';
+        }
+        else {
+            baseLocation = '/home';
+        }
+    }
+    tempDirectory = path.join(baseLocation, 'actions', 'temp');
+}
+function getGradle(version, gradleFile, gradleMirror = 'https://services.gradle.org/distributions/') {
+    return __awaiter(this, void 0, void 0, function* () {
+        const toolName = 'gradle';
+        let toolPath = tc.find(toolName, version);
+        if (toolPath) {
+            core.debug(`Tool found in cache ${toolPath}`);
+        }
+        else {
+            let compressedFileExtension = '';
+            if (!gradleFile) {
+                core.debug('Downloading Gradle from gradle.org');
+                let http = new httpm.HttpClient('spring-build-action');
+                let contents = yield (yield http.get(gradleMirror)).readBody();
+                let refs = [];
+                const regex = /<span class=\"name\">gradle-([\d\.]+)-bin\.zip<\/span>/g;
+                let match = regex.exec(contents);
+                while (match != null) {
+                    refs.push(match[1]);
+                    match = regex.exec(contents);
+                }
+                core.debug(`Found refs ${refs}`);
+                const downloadInfo = getDownloadInfo(refs, version, gradleMirror);
+                gradleFile = yield tc.downloadTool(downloadInfo.url);
+                version = downloadInfo.version;
+                compressedFileExtension = '.zip';
+            }
+            else {
+                core.debug('Retrieving Gradle from local path');
+            }
+            compressedFileExtension = compressedFileExtension || getFileEnding(gradleFile);
+            let tempDir = path.join(tempDirectory, 'temp_' + Math.floor(Math.random() * 2000000000));
+            const jdkDir = yield unzipJavaDownload(gradleFile, compressedFileExtension, tempDir);
+            core.debug(`jdk extracted to ${jdkDir}`);
+            toolPath = yield tc.cacheDir(jdkDir, toolName, getCacheVersionString(version));
+        }
+        core.exportVariable('GRADLE_HOME', toolPath);
+        core.addPath(path.join(toolPath, 'bin'));
+    });
+}
+exports.getGradle = getGradle;
+function getCacheVersionString(version) {
+    const versionArray = version.split('.');
+    const major = versionArray[0];
+    const minor = versionArray.length > 1 ? versionArray[1] : '0';
+    const patch = versionArray.length > 2 ? versionArray[2] : '0';
+    return `${major}.${minor}.${patch}`;
+}
+function getFileEnding(file) {
+    let fileEnding = '';
+    if (file.endsWith('.zip')) {
+        fileEnding = '.zip';
+    }
+    else {
+        throw new Error(`${file} has an unsupported file extension`);
+    }
+    return fileEnding;
+}
+function extractFiles(file, fileEnding, destinationFolder) {
+    return __awaiter(this, void 0, void 0, function* () {
+        const stats = fs.statSync(file);
+        if (!stats) {
+            throw new Error(`Failed to extract ${file} - it doesn't exist`);
+        }
+        else if (stats.isDirectory()) {
+            throw new Error(`Failed to extract ${file} - it is a directory`);
+        }
+        if ('.zip' === fileEnding) {
+            yield tc.extractZip(file, destinationFolder);
+        }
+        else {
+            throw new Error(`Failed to extract ${file} - only .zip supported`);
+        }
+    });
+}
+function unzipJavaDownload(repoRoot, fileEnding, destinationFolder, extension) {
+    return __awaiter(this, void 0, void 0, function* () {
+        // Create the destination folder if it doesn't exist
+        yield io.mkdirP(destinationFolder);
+        const mavenFile = path.normalize(repoRoot);
+        const stats = fs.statSync(mavenFile);
+        if (stats.isFile()) {
+            yield extractFiles(mavenFile, fileEnding, destinationFolder);
+            const jdkDirectory = path.join(destinationFolder, fs.readdirSync(destinationFolder)[0]);
+            return jdkDirectory;
+        }
+        else {
+            throw new Error(`Maven argument ${mavenFile} is not a file`);
+        }
+    });
+}
+function getDownloadInfo(refs, version, mavenMirror) {
+    version = normalizeVersion(version);
+    const extension = '.zip';
+    // Maps version to url
+    let versionMap = new Map();
+    // Filter by platform
+    refs.forEach(ref => {
+        if (semver.satisfies(ref, version)) {
+            core.debug(`VersionMap add  ${ref} ${version}`);
+            versionMap.set(ref, `${mavenMirror}gradle-${ref}-bin${extension}`);
+        }
+    });
+    // Choose the most recent satisfying version
+    let curVersion = '0.0.0';
+    let curUrl = '';
+    for (const entry of versionMap.entries()) {
+        const entryVersion = entry[0];
+        const entryUrl = entry[1];
+        core.debug(`VersionMap Entry ${entryVersion} ${entryUrl}`);
+        if (semver.gt(entryVersion, curVersion)) {
+            core.debug(`VersionMap semver gt ${entryVersion} ${entryUrl}`);
+            curUrl = entryUrl;
+            curVersion = entryVersion;
+        }
+    }
+    if (curUrl == '') {
+        throw new Error(`No valid download found for version ${version}. Check ${mavenMirror} for a list of valid versions or download your own maven file and add the maven-file argument`);
+    }
+    return { version: curVersion, url: curUrl };
+}
+function normalizeVersion(version) {
+    if (version.slice(0, 2) === '1.') {
+        // Trim leading 1. for versions like 1.8
+        version = version.slice(2);
+        if (!version) {
+            throw new Error('1. is not a valid version');
+        }
+    }
+    if (version.split('.').length < 3) {
+        // Add trailing .x if it is missing
+        if (version[version.length - 1] != 'x') {
+            version = version + '.x';
+        }
+    }
+    return version;
+}
+
 
 /***/ }),
 

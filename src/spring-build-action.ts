@@ -2,6 +2,7 @@ import * as core from '@actions/core';
 import * as exec from '@actions/exec';
 // import { BuildCommandBuilder } from './build-command-builder';
 import * as mavenInstaller from './maven-installer';
+import * as gradleInstaller from './gradle-installer';
 
 async function run() {
   try {
@@ -12,9 +13,11 @@ async function run() {
     const mavenVersion = core.getInput('maven-version', {required: true});
     const mavenFile = core.getInput('maven-file', {required: false}) || '';
     const mavenMirror = core.getInput('maven-mirror', {required: true});
-
     await mavenInstaller.getMaven(mavenVersion, mavenFile, mavenMirror);
 
+    const gradleVersion = core.getInput('gradle-version', {required: true});
+    const gradleFile = core.getInput('gradle-file', {required: false}) || '';
+    await gradleInstaller.getGradle(gradleVersion, gradleFile);
 
     // const builder = new BuildCommandBuilder();
     // builder.useWrapper = useWrapper;

@@ -20,6 +20,14 @@ inputs:
     description: 'Uri to Maven mirror hosting package'
     required: false
     default: 'https://archive.apache.org/dist/maven/maven-3/'
+  gradle-version:
+    description: 'The Gradle version to make available on the path. Takes a whole
+       or semver Gradle version, or 3.x syntax (e.g. 3.6 => Gradle 3.x)'
+    required: true
+  gradle-file:
+    description: 'Path to where the compressed Gradle is located. The path could
+       be in your source repository or a local path on the agent.'
+    required: false
 runs:
   using: 'node12'
   main: 'dist/index.js'
