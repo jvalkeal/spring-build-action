@@ -1,6 +1,7 @@
 import * as core from '@actions/core';
 import * as exec from '@actions/exec';
 import { BuildCommandBuilder } from './build-command-builder';
+import * as mavenInstaller from './maven-installer';
 
 async function run() {
   try {
@@ -8,10 +9,17 @@ async function run() {
     let useWrapper = core.getInput('use-wrapper', {required: false}) === 'true';
     let buildMode = core.getInput('build-mode', {required: false});
 
-    const builder = new BuildCommandBuilder();
-    builder.useWrapper = useWrapper;
-    builder.buildMode = buildMode;
-    const buildExec = await builder.build();
+    const mavenVersion = core.getInput('maven-version', {required: true});
+    const mavenFile = core.getInput('maven-file', {required: false}) || '';
+    const mavenMirror = core.getInput('maven-mirror', {required: true});
+
+    await mavenInstaller.getMaven(mavenVersion, mavenFile, mavenMirror);
+
+
+    // const builder = new BuildCommandBuilder();
+    // builder.useWrapper = useWrapper;
+    // builder.buildMode = buildMode;
+    // const buildExec = await builder.build();
 
     // discover runtime config from a cloned project
 
@@ -23,7 +31,7 @@ async function run() {
     // we only support maven or gradle so dispatch to
     // one of those or throw error
 
-    await exec.exec(buildExec.commandLine, buildExec.args);
+    // await exec.exec(buildExec.commandLine, buildExec.args);
 
   } catch (error) {
     core.setFailed(error.message);

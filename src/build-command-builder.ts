@@ -36,7 +36,7 @@ export class BuildCommandBuilder {
     let error = 'Unknown error';
     const IS_WINDOWS = process.platform === 'win32';
     const mavenWrapperCommand = IS_WINDOWS ? 'mvnw.cmd' : 'mvnw';
-    const gradleWrapperCommand = IS_WINDOWS ? 'gradle.bat' : 'gradle';
+    const gradleWrapperCommand = IS_WINDOWS ? 'gradlew.bat' : 'gradlew';
 
     const mavenPomExists = fs.existsSync('pom.xml');
     const mavenExists = commandExists('mvn');
